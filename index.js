@@ -25,8 +25,8 @@ bot.setWebHook(`${URL}/bot${TOKEN}`);
 
 // TWO TICKS FIX
 app.post(`/bot${TOKEN}`, (req,res)=>{
-  res.sendStatus(200);
-  bot.processUpdate(req.body);
+  res.status(200).send('OK'); // Jibu Telegram HARAKA sana
+  try{ bot.processUpdate(req.body); }catch{}
 });
 
 bot.on('message', async (msg)=>{
