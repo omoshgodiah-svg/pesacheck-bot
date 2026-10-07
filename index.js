@@ -63,15 +63,17 @@ bot.on('message', async (msg) => {
   }
 });
 
-app.post(`/bot${TOKEN}`, async (req, res) => {
+app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, async (req, res) => {
   try {
-    await bot.processUpdate(req.body);
-  } catch(e){
+    const message = req.body.message;
+    // ... logic yako
+    await bot.sendMessage(...)
+    res.sendStatus(200);
+  } catch (e) {
     console.error(e);
+    res.sendStatus(200); // muhimu!
   }
-  res.sendStatus(200);
 });
-
 app.get('/', (req, res) => res.send('PesaCHECK Bot Running 24/7'));
 
 module.exports = app;
