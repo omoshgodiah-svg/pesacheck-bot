@@ -6,13 +6,7 @@ const app = express();
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-app.get('/', (req, res) => res.send('PesaCheck Live'));
-
-const FALLBACKS = [
-  "Haha buda umenichekesha, sema tuu pesa story - niko rada! 😂",
-  "Hehe mzee, hiyo sijaishika, but niko poa na pesa maneno! 💰",
-  "Buda, rephrase tuu kidogo, nataka nikujenge na pesa! 🙏"
-];
+app.get('/', (req, res) => res.send('PesaCheck Live V4'));
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -21,13 +15,13 @@ bot.on('message', async (msg) => {
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "openai/gpt-oss-20b",
-      temperature: 0.8,
-      max_tokens: 200,
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      temperature: 0.7,
+      max_tokens: 300,
       messages: [
         {
           role: "system",
-          content: "You are PesaCheck, a Kenyan sheng money buddy. You speak sheng. You MUST always give an answer, never return empty. If user asks about loans, talk about general saving tips, SACCOs, side hustles, budgeting - don't mention mzungu. Keep it short, funny, Kenyan. Max 2 sentences."
+          content: "You are PesaCheck, a Kenyan Gen-Z money buddy. Speak in Sheng/Swahili/English mix. You help with budgeting, saving, side hustles. ALWAYS answer, never empty. Keep under 40 words, funny, with emoji. If asked what you do: 'Mimi ni PesaCheck, nakusaidia na pesa, budget na saving mzee!'"
         },
         { role: "user", content: text }
       ],
@@ -35,30 +29,21 @@ bot.on('message', async (msg) => {
 
     let reply = completion.choices[0]?.message?.content?.trim();
 
+    // Fix for reasoning models (just in case)
     if (!reply) {
-      console.log("Groq returned empty, retrying...");
-      // retry with safer prompt
-      const retry = await groq.chat.completions.create({
-        model: "openai/gpt-oss-20b",
-        messages: [
-          { role: "system", content: "You are PesaCheck, Kenyan money advisor. Answer in sheng, short." },
-          { role: "user", content: "Explain in sheng: how to get money: " + text }
-        ],
-        max_tokens: 150
-      });
-      reply = retry.choices[0]?.message?.content?.trim();
+      reply = completion.choices[0]?.message?.reasoning_content?.trim() || "";
     }
 
-    if (!reply) {
-      reply = FALLBACKS[Math.floor(Math.random() * FALLBACKS.length)];
+    if (!reply || reply.length < 2) {
+      reply = "Mimi ni PesaCheck buda! Nakusaidia na pesa, budget, na savings - uliza chochote about doh! 💰";
     }
 
     await bot.sendMessage(chatId, reply);
 
   } catch (err) {
-    console.error(err.message);
-    await bot.sendMessage(chatId, FALLBACKS[0]);
+    console.error("ERROR:", err.message);
+    await bot.sendMessage(chatId, "Mimi ni PesaCheck, mzee wa pesa! Uliza budget ama saving! 💸");
   }
 });
 
-app.listen(process.env.PORT || 10000, () => console.log("Live"));
+app.listen(process.env.PORT || 10000, () => console.log("V4 Live"));
