@@ -6,57 +6,44 @@ const app = express();
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-app.get('/', (req, res) => res.send('PesaCheck V5 Live'));
-
-const MODELS = [
-  "llama-3.3-70b-versatile",
-  "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.1-8b-instant"
-];
+app.get('/', (req, res) => res.send('V6 Live'));
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const text = (msg.text || "").trim();
+  const text = (msg.text || "").trim().toLowerCase();
   if (!text) return;
 
-  let reply = null;
+  try {
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant", // fastest + never fails
+      temperature: 0.9,
+      max_tokens: 120,
+      messages: [
+        {
+          role: "system",
+          content: "You are PesaCheck, Kenyan money buddy. You understand BOTH English and Swahili/Sheng. Match user's language. If user says hi/hiii/hello/mambo/sasa/oyaa -> reply friendly greeting + ask about money. If English, reply English. If Swahili/Sheng, reply Sheng. Always add 1 emoji. Max 25 words. You help with money, budgeting, saving."
+        },
+        { role: "user", content: msg.text }
+      ],
+    });
 
-  for (const model of MODELS) {
-    try {
-      const completion = await groq.chat.completions.create({
-        model: model,
-        temperature: 0.85,
-        max_tokens: 150,
-        messages: [
-          {
-            role: "system",
-            content: `You are PesaCheck, Nairobi's best sheng money guy. Rules:
-- User says "mambo", "oyaa", "sasa", "poa" => reply "Poa sana mzee! Niko fiti, pesa iko? Unataka nikusaidie na nini leo?"
-- User asks what you do => "Mimi ni PesaCheck, boy wa pesa! Nakujenga na budget, saving, na kudinyana na pesa usichezwe!"
-- Always in sheng, short (max 25 words), funny, Kenyan. Never say you are AI.`
-          },
-          { role: "user", content: text }
-        ],
-      });
-      reply = completion.choices[0]?.message?.content?.trim();
-      if (reply) {
-        console.log(`SUCCESS with ${model}`);
-        break;
-      }
-    } catch (e) {
-      console.log(`FAIL ${model}: ${e.message}`);
-    }
-  }
+    let reply = completion.choices[0]?.message?.content?.trim();
+    if(!reply) throw new Error("empty");
 
-  if (!reply) {
-    if (text.toLowerCase().includes("mambo") || text.toLowerCase().includes("oyaa") || text.toLowerCase().includes("sasa")) {
-      reply = "Poa sana mzee! Niko fiti, pesa iko? Unataka nikusaidie na nini leo? 💰";
+    await bot.sendMessage(chatId, reply);
+    console.log(`OK: ${msg.text} -> ${reply}`);
+
+  } catch (err) {
+    console.error("GROQ ERROR REAL:", err.message);
+    // Smart fallback that knows English too
+    let fallback;
+    if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("yo")) {
+      fallback = "Heyy! I'm PesaCheck, your money plug! What's good, need help with budget or saving? 💸";
     } else {
-      reply = "Mimi ni PesaCheck, boy wa pesa! Nakujenga na budget na saving, sema tu! 💸";
+      fallback = "Poa sana! Mimi ni PesaCheck, plug wa pesa. Niko ready kukujenga na doh! 💰";
     }
+    await bot.sendMessage(chatId, fallback);
   }
-
-  await bot.sendMessage(chatId, reply);
 });
 
-app.listen(process.env.PORT || 10000, () => console.log("V5 Live"));
+app.listen(process.env.PORT || 10000, () => console.log("V6 Live"));
