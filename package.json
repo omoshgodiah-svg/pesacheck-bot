@@ -1,6 +1,6 @@
 {
   "name": "pesacheck-bot",
-  "version": "7.0.0",
+  "version": "11.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
