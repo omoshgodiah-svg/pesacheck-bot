@@ -9,7 +9,7 @@ const URL = process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL;
 const MPESA_KEY = process.env.MPESA_CONSUMER_KEY;
 const MPESA_SECRET = process.env.MPESA_CONSUMER_SECRET;
 
-const bot = new TelegramBot(TOKEN);
+const bot = new TelegramBot(TOKEN, { polling: false });
 // Weka webhook - bila polling
 if(URL){
   const fullUrl = URL.startsWith('http')? URL : `https://${URL}`;
@@ -60,4 +60,3 @@ app.post(`/bot${TOKEN}`, (req,res)=>{
 app.get('/', (req,res)=>res.send('PesaCHECK LIVE - Webhook Mode'));
 
 module.exports = app;
-app.listen(process.env.PORT || 3000);
