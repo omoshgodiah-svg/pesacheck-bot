@@ -1,45 +1,54 @@
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-const TOKEN = process.env.BOT_TOKEN;
+app.use(express.json());
 
-console.log("Checking token...", TOKEN ? "Token exists" : "NO TOKEN FOUND!");
-
-if (!TOKEN) {
-  console.error("❌ BOT_TOKEN env variable missing!");
+// AI FUNCTION - Same brain for both bots
+async function askAI(userText) {
+  try {
+    const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: "You are PesaCheck, friendly Kenyan assistant. Help detect M-Pesa scams, answer any questions, speak Sheng/Swahili/English mix, short & helpful like Meta AI. Keep replies under 3 lines for WhatsApp." },
+        { role: "user", content: userText }
+      ]
+    }, { headers: { Authorization: `Bearer ${process.env.GROQ_KEY}` } });
+    return res.data.choices[0].message.content;
+  } catch (e) {
+    return "Pole, AI imelala kidogo. Jaribu tena! 😅";
+  }
 }
 
-const bot = new TelegramBot(TOKEN, { polling: true });
-
-bot.on('polling_error', (error) => {
-  console.log("Polling error:", error.code, error.message);
-});
-
+// ===== TELEGRAM - CHATS LIKE ME =====
+const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 bot.onText(/\/start/, (msg) => {
-  console.log("Received /start from", msg.chat.id);
-  bot.sendMessage(msg.chat.id, `👋 Jambo! Welcome to PesaCheck!
-
-East Africa's leading fact-checking organization.
-
-Send us any claim, news, or image and we verify it for you! Fighting misinformation in Kenya and beyond.
-
-Try sending: "Is it true that..."`);
+  bot.sendMessage(msg.chat.id, "Jambo! PesaCheck AI Live 🇰🇪 Uliza chochote!");
+});
+bot.on('message', async (msg) => {
+  if (!msg.text || msg.text.startsWith('/')) return;
+  bot.sendChatAction(msg.chat.id, 'typing');
+  const answer = await askAI(msg.text);
+  bot.sendMessage(msg.chat.id, answer);
 });
 
-bot.on('message', (msg) => {
-  console.log("Message received:", msg.text, "from", msg.chat.id);
-  if (msg.text && !msg.text.startsWith('/')) {
-    bot.sendMessage(msg.chat.id, `Thanks! You said: "${msg.text}"\n\n🔍 Our fact-checkers will verify this. For now this is a test reply - your bot is WORKING! ✅`);
+// ===== WHATSAPP - CHATS LIKE ME =====
+const VERIFY_TOKEN = "pesacheck123";
+app.get('/webhook', (req,res) => {
+  if(req.query['hub.verify_token']===VERIFY_TOKEN) res.send(req.query['hub.challenge']);
+  else res.sendStatus(403);
+});
+app.post('/webhook', async (req,res) => {
+  const m = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if(m && m.text){
+    const answer = await askAI(m.text.body); // AI brain for WhatsApp too!
+    await axios.post(`https://graph.facebook.com/v18.0/${process.env.PHONE_ID}/messages`, {
+      messaging_product:"whatsapp", to: m.from, text:{body: answer}
+    }, { headers:{Authorization:`Bearer ${process.env.WHATSAPP_TOKEN}`}});
   }
+  res.sendStatus(200);
 });
 
-app.get('/', (req, res) => {
-  res.send('PesaCheck Bot is running! Bot polling: ' + (bot ? 'active' : 'inactive'));
-});
-
-app.listen(PORT, () => {
-  console.log(`Cloud web server ready on port ${PORT}`);
-  console.log(`Bot started polling...`);
-});
+app.get('/', (req,res)=>res.send('PesaCheck AI Both Live'));
+app.listen(process.env.PORT||3000, ()=>console.log('Live'));
