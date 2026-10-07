@@ -1,56 +1,45 @@
 const express = require('express');
+const TelegramBot = require('node-telegram-bot-api');
+
 const app = express();
-app.get('/', (req,res)=>res.send('PesaCHECK 24/7 LIVE 🔥'));
-app.listen(process.env.PORT || 3000, ()=>console.log('Cloud web server ready'));
+const PORT = process.env.PORT || 10000;
+const TOKEN = process.env.BOT_TOKEN;
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
-const qrcode = require('qrcode-terminal')
+console.log("Checking token...", TOKEN ? "Token exists" : "NO TOKEN FOUND!");
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info')
-
-    const sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: false
-    })
-
-    sock.ev.on('creds.update', saveCreds)
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update
-
-        if(qr) {
-            console.log('--- SCAN THIS QR WITH YOUR 0142719180 WHATSAPP ---')
-            qrcode.generate(qr, { small: true })
-        }
-
-        if(connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut
-            if(shouldReconnect) startBot()
-        } else if(connection === 'open') {
-            console.log('PesaCHECK connected! Bot is LIVE on 0142719180')
-        }
-    })
-
-    sock.ev.on('messages.upsert', async (m) => {
-        const msg = m.messages[0]
-        if(!msg.message || msg.key.fromMe) return
-
-        const from = msg.key.remoteJid
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-
-        console.log('Message:', text)
-
-        if(text.toLowerCase().includes('hii') || text.toLowerCase().includes('hello') || text.toLowerCase().includes('hey')) {
-            await sock.sendMessage(from, { text: "Welcome to PesaCHECK! ✅\n\nForward your M-Pesa message here to verify it.\n\nExample: Forward any M-Pesa SMS." })
-        } else if(text.includes('M-PESA') || text.includes('Confirmed') || text.includes('Ksh')) {
-            // M-PESA verification logic here
-            await sock.sendMessage(from, { text: `🔍 PesaCHECK Verifying...\n\n${text.substring(0,200)}\n\n✅ Checking amount, code and status...` })
-            // Add your real verification later
-        } else {
-            await sock.sendMessage(from, { text: "Welcome to PesaCHECK! Forward your M-Pesa message here to verify it." })
-        }
-    })
+if (!TOKEN) {
+  console.error("❌ BOT_TOKEN env variable missing!");
 }
 
-startBot()
+const bot = new TelegramBot(TOKEN, { polling: true });
+
+bot.on('polling_error', (error) => {
+  console.log("Polling error:", error.code, error.message);
+});
+
+bot.onText(/\/start/, (msg) => {
+  console.log("Received /start from", msg.chat.id);
+  bot.sendMessage(msg.chat.id, `👋 Jambo! Welcome to PesaCheck!
+
+East Africa's leading fact-checking organization.
+
+Send us any claim, news, or image and we verify it for you! Fighting misinformation in Kenya and beyond.
+
+Try sending: "Is it true that..."`);
+});
+
+bot.on('message', (msg) => {
+  console.log("Message received:", msg.text, "from", msg.chat.id);
+  if (msg.text && !msg.text.startsWith('/')) {
+    bot.sendMessage(msg.chat.id, `Thanks! You said: "${msg.text}"\n\n🔍 Our fact-checkers will verify this. For now this is a test reply - your bot is WORKING! ✅`);
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send('PesaCheck Bot is running! Bot polling: ' + (bot ? 'active' : 'inactive'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Cloud web server ready on port ${PORT}`);
+  console.log(`Bot started polling...`);
+});
