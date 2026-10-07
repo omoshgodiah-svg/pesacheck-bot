@@ -2,68 +2,49 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+app.use(express.json());
 
-app.get('/', (req, res) => res.send('PesaCheck V7 ULTIMATE Live - No Groq'));
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const URL = "https://pesacheck-bot.onrender.com";
+
+const bot = new TelegramBot(TOKEN);
+bot.setWebHook(`${URL}/bot${TOKEN}`);
 
 function random(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 const RESPONSES = {
   greeting: {
-    en: ["Heyy! I'm good! What's good with you? Need help with budget? 💸", "Yo! PesaCheck here! Ready to sort your money? 💰", "Helloo! Niko poa! How can I help with your cash? 🙏"],
+    en: ["Heyy! I'm good! What's good? Need budget help? 💸", "Yo! PesaCheck here! Ready to sort your money? 💰", "Helloo! Niko poa! How can I help with cash? 🙏"],
     sw: ["Poa sana mzee! Niko fiti! Pesa iko aje? 💰", "Mambo! Niko rada! Unataka nikusaidie na doh? 😂", "Sasa! Niko poa! Tuongee pesa! 💸"]
   },
-  what_do_you_do: [
-    "Mimi ni PesaCheck! Najua ku-budget, ku-save, na kukupa ideas za side hustle - English ama Kiswahili, both! 💰",
-    "I'm your money plug! I help you budget, save, and make more doh! I speak English, Kiswahili & Sheng! 🚀",
-    "Mzee, mimi ni boy wa pesa! Nakujenga na pesa, budget, savings, na business ideas! Multilingual! 💸"
-  ],
-  languages: [
-    "I know 3! English, Kiswahili, and Sheng! You can talk to me in any, I match your vibe! 😎",
-    "Najua English, Swahili na Sheng! Ongea ile unapenda, mimi niko sawa! 💬",
-    "English ✅ Kiswahili ✅ Sheng ✅ - Chagua lugha, mimi niko rada!"
-  ],
-  money: [
-    "Poa! About pesa - unataka budgeting, saving, ama side hustle idea? Niko na tricks mob! 💰",
-    "Money talk? Sawa! Tell me - you want to save, budget, or make more? I got you! 💸",
-    "Doh maneno! Best trick ni 50/30/20 rule. Unatumia pesa aje? Niambie nikujenge! 🙏"
-  ],
-  default: [
-    "Sawa mzee, nimeskia! About pesa, unataka nikusaidie na nini exactly? Budget ama saving? 💰",
-    "Poa! Elaborate kidogo about pesa - niko hapa kukusort! 😎",
-    "Haha sawa! But let's talk money - how can PesaCheck help your wallet today? 💸"
-  ]
+  what: ["Mimi ni PesaCheck! Najua budget, saving, side hustle - English, Kiswahili & Sheng! 💰","I'm your money plug! Budget, save, make more doh! Multilingual! 🚀"],
+  lang: ["I know 3! English, Kiswahili, Sheng! Ongea any! 😎","Najua English, Swahili na Sheng! Chagua lugha! 💬"],
+  money: ["Poa! About pesa - budget, saving, ama hustle? Niko na tricks! 💰","Money talk? 50/30/20 rule is fire! Unatumia pesa aje? 💸"],
+  def: ["Sawa mzee, nimeskia! Unataka nikusaidie na nini about pesa? 💰","Poa! Elaborate kidogo, niko hapa! 😎"]
 };
 
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const textRaw = (msg.text || "").trim();
-  const text = textRaw.toLowerCase();
-  if (!text) return;
-
-  let reply;
-
-  if (["hii","hiii","hi","hello","hey","yo","mambo","sasa","oyaa","poa","niaje","rada"].some(w => text.includes(w))) {
-    if (["mambo","sasa","poa","niaje"].some(w => text.includes(w))) reply = random(RESPONSES.greeting.sw);
-    else reply = random(RESPONSES.greeting.en);
-    // special if just "hiii" alone
-    if (text.length <= 5) reply = random(RESPONSES.greeting.en) + " " + random(["What do you need?","Need budget help?"]);
-  }
-  else if (text.includes("what do you do") || text.includes("what can you do") || text.includes("unafanya nini")) {
-    reply = random(RESPONSES.what_do_you_do);
-  }
-  else if (text.includes("language") || text.includes("lugha") || text.includes("kiswahili") || text.includes("sheng")) {
-    reply = random(RESPONSES.languages);
-  }
-  else if (text.includes("pesa") || text.includes("money") || text.includes("budget") || text.includes("save") || text.includes("loan") || text.includes("doh") || text.includes("biz") || text.includes("hustle")) {
-    reply = random(RESPONSES.money);
-  }
-  else {
-    reply = random(RESPONSES.default);
-  }
-
-  await bot.sendMessage(chatId, reply);
-  console.log(`Handled: ${textRaw} -> ${reply}`);
+app.post(`/bot${TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-app.listen(process.env.PORT || 10000, () => console.log("V7 ULTIMATE Live - No Groq needed!"));
+bot.on('message', async (msg) => {
+  const text = (msg.text || "").toLowerCase();
+  let reply;
+  if (["hii","hi","hello","mambo","sasa","oyaa","poa"].some(w=>text.includes(w))) {
+    reply = text.match(/mambo|sasa|poa/) ? random(RESPONSES.greeting.sw) : random(RESPONSES.greeting.en);
+  } else if (text.includes("what do you do") || text.includes("unafanya")) {
+    reply = random(RESPONSES.what);
+  } else if (text.includes("language") || text.includes("lugha")) {
+    reply = random(RESPONSES.lang);
+  } else if (["pesa","money","budget","save","loan","doh"].some(w=>text.includes(w))) {
+    reply = random(RESPONSES.money);
+  } else {
+    reply = random(RESPONSES.def);
+  }
+  await bot.sendMessage(msg.chat.id, reply);
+});
+
+app.get('/', (req, res) => res.send('PesaCheck V8 WEBHOOK Live'));
+
+app.listen(process.env.PORT || 10000, () => console.log("V8 WEBHOOK Live"));
