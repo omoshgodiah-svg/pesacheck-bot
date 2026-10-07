@@ -63,8 +63,12 @@ bot.on('message', async (msg) => {
   }
 });
 
-app.post(`/bot${TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
+app.post(`/bot${TOKEN}`, async (req, res) => {
+  try {
+    await bot.processUpdate(req.body);
+  } catch(e){
+    console.error(e);
+  }
   res.sendStatus(200);
 });
 
