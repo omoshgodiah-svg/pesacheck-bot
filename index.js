@@ -16,7 +16,7 @@ bot.on('message', async (msg) => {
   console.log(">>> GOT MESSAGE:", msg.text);
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [
         {role: "system", content: "You are PesaCheck, Kenyan sheng friend. Reply short in sheng."},
         {role: "user", content: msg.text}
