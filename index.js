@@ -15,31 +15,28 @@ let lastBudget = {};
 function getMealPlan(amount){
   const foodBudget = Math.round(amount * 0.6);
   const daily = Math.round(foodBudget / 30);
-  return `🍲 KES ${amount} - FULL DAILY FOOD PLAN (Nairobi):
+  return `🍲 KES ${amount} - FULL DAILY FOOD PLAN:
 
 FOOD BUDGET: KES ${foodBudget} = KES ${daily}/day
 
 🌅 BREAKFAST (60 bob):
-• Uji + mandazi 2 / Chai + chapati 2 + mayai
-• Mon-Fri same, weekend change
+- Uji + mandazi 2 / Chai + chapati 2 + mayai
 
 ☀️ LUNCH (150 bob):
-• Mon: Githeri + avocado
-• Tue: Rice + beans + kachumbari
-• Wed: Ugali + sukuma + mayai
-• Thu: Chapati + ndengu
-• Fri: Pilau kachumbari (treat)
-• Weekend: Rice + omena
+- Mon: Githeri + avocado
+- Tue: Rice + beans + kachumbari
+- Wed: Ugali + sukuma + mayai
+- Thu: Chapati + ndengu
+- Fri: Pilau kachumbari
+- Weekend: Rice + omena
 
 🌙 SUPPER (200 bob):
-• Ugali + matumbo/omena/maharagwe + greens
-• + Fruit: banana/mango
+- Ugali + matumbo/omena/maharagwe + greens + banana
 
-🛒 SHOPPING WEEKLY (Marikiti Sat):
-Mchele 5kg 700, Maharagwe 3kg 600, Mafuta 3L 900, Sukuma 300, Mayai tray 450, Omena 1kg 200, Nyanya 500
+🛒 SHOPPING WEEKLY (Marikiti):
+Mchele 5kg 700, Maharagwe 3kg 600, Mafuta 3L 900, Sukuma 300, Mayai 450, Omena 200, Nyanya 500
 
-✅ MEETS STANDARDS: Protein daily, Carbs, Vitamins, 2L water.
-
+✅ MEETS STANDARDS: Protein, Carbs, Vitamins, 2L water daily.
 Baki KES ${amount-foodBudget} for rent/save.`;
 }
 
@@ -60,11 +57,9 @@ bot.on('message', async (msg)=>{
   const raw = msg.text || "";
   const t = raw.toLowerCase().trim();
   const chatId = msg.chat.id;
-  const name = msg.from.first_name || "mzee";
   const amount = parseInt(t.replace(/[^0-9]/g,""));
   const code = (raw.match(/\b[A-Z0-9]{8,12}\b/)||[])[0];
 
-  // SMART INTENT
   let intent='unknown';
   if(t.match(/^(h+i+|hello|hey|poa|sasa|mambo|niaje)$/)) intent='greeting';
   else if(t.match(/oza|uza|hustle|biashara|sell|kuoza/)) intent='selling';
@@ -76,9 +71,9 @@ bot.on('message', async (msg)=>{
   try{
     if(intent==='greeting'){
       const greetings = [
-        `Poa ${name}! 🔥 Uko aje?`,
-        `Sasa ${name}! Niko rada 24/7 😎`,
-        `Mambo ${name}! Karibu PesaCheck 💪`
+        `Poa! 🔥 Uko aje?`,
+        `Sasa! Niko rada 24/7 😎`,
+        `Mambo! Karibu PesaCheck 💪`
       ];
       const g = greetings[Math.floor(Math.random()*greetings.length)];
       return await bot.sendMessage(chatId, `${g}\n\nNiko na:\n• M-Pesa checker (Daraja ✅)\n• Biashara ideas na 20k\n• Budget ya food daily\n\nTuma kitu tuanze!`);
@@ -86,20 +81,20 @@ bot.on('message', async (msg)=>{
 
     if(intent==='selling' && amount){
       lastBudget[chatId]=amount;
-      return await bot.sendMessage(chatId, `🔥 Sawa ${name}, na KES ${amount}:\n\n1. Mitumba Gikomba ${Math.round(amount*0.6)} - faida 80% in 2 weeks\n2. Mayai + Smokies trolley ${Math.round(amount*0.3)} - KES 800 daily\n3. M-Pesa float ${Math.round(amount*0.5)}\n\nSemaje, unataka gani niku-breakdown?`);
+      return await bot.sendMessage(chatId, `🔥 Na KES ${amount}:\n\n1. Mitumba Gikomba ${Math.round(amount*0.6)} - faida 80%\n2. Mayai + Smokies trolley ${Math.round(amount*0.3)} - 800 daily\n3. M-Pesa float ${Math.round(amount*0.5)}\n\nChagua 1 nikupee full plan!`);
     }
     if(intent==='selling'){
-      return await bot.sendMessage(chatId, `Poa ${name}, unataka kuoza! Uko na capital ngapi? Tuma kama "nina 15k"`);
+      return await bot.sendMessage(chatId, `Unataka kuoza! Uko na capital ngapi? Tuma kama "nina 15k"`);
     }
 
     if(intent==='scam'){
       if(code){
-        await bot.sendMessage(chatId, `🔍 Checking ${code} ${name}...`);
+        await bot.sendMessage(chatId, `🔍 Checking ${code}...`);
         const token = await getDarajaToken();
         const real = /^[A-Z]{2,4}\d+[A-Z0-9]{2,}/.test(code);
-        return await bot.sendMessage(chatId, `${real?'✅ Format REAL':'⚠️ Ina-kaa fake'}: ${code}\n${token?'Daraja Connected ✅ - Production = 100% real check':'Tuma full SMS pia'}\n\nNote: Safaricom haina 07xx kwa M-Pesa.`);
+        return await bot.sendMessage(chatId, `${real?'✅ Format REAL':'⚠️ Ina-kaa fake'}: ${code}\n${token?'Daraja Connected ✅':'Tuma full SMS pia'}`);
       }
-      return await bot.sendMessage(chatId, `Tuma full M-Pesa SMS hapa ${name}, ni-check kama ni tapeli.`);
+      return await bot.sendMessage(chatId, `Tuma full M-Pesa SMS hapa ni-check kama ni tapeli.`);
     }
 
     if(intent==='food_breakdown' || intent==='food'){
@@ -110,22 +105,21 @@ bot.on('message', async (msg)=>{
 
     if(intent==='budget' && amount){
       lastBudget[chatId]=amount;
-      return await bot.sendMessage(chatId, `💰 KES ${amount} BUDGET:\n✅ NEEDS 50%: ${Math.round(amount*0.5)} (rent, food, transport)\n😎 WANTS 30%: ${Math.round(amount*0.3)}\n🔒 SAVE 20%: ${Math.round(amount*0.2)}\n\nAndika "breakdown" nikupe chakula cha kila siku na bei ya Marikiti.`);
+      return await bot.sendMessage(chatId, `💰 KES ${amount} BUDGET:\n✅ NEEDS 50%: ${Math.round(amount*0.5)}\n😎 WANTS 30%: ${Math.round(amount*0.3)}\n🔒 SAVE 20%: ${Math.round(amount*0.2)}\n\nAndika "breakdown" nikupe chakula cha kila siku.`);
     }
 
-    // If user says breakdown after budget
     if(lastBudget[chatId] && t.match(/breakdown|nipe|food/)){
       return await bot.sendMessage(chatId, getMealPlan(lastBudget[chatId]));
     }
 
-    return await bot.sendMessage(chatId, `Sawa ${name} 😊 Niko hapa 24/7\n\n• Tuma M-Pesa CODE\n• Andika "20k food" - meal plan\n• Andika "20k kuoza" - biashara`);
+    return await bot.sendMessage(chatId, `Niko 24/7 😊\n• Tuma M-Pesa CODE\n• "20k food" - meal plan\n• "20k kuoza" - biashara`);
 
   }catch(e){
     console.log(e.message);
-    try{ await bot.sendMessage(chatId, `Poa ${name}! Tuma "20k food" au M-Pesa CODE - niko 24/7`); }catch{}
+    try{ await bot.sendMessage(chatId, `Poa! Tuma "20k food" au M-Pesa CODE - niko 24/7`); }catch{}
   }
 });
 
-app.get('/', (req,res)=>res.send(`V26 HUMAN LIVE - Daraja:${MPESA_KEY?'OK':'No'} | 24/7`));
+app.get('/', (req,res)=>res.send(`V27 PUBLIC NO NAME LIVE - Daraja:${MPESA_KEY?'OK':'No'} | 24/7`));
 setInterval(()=>{axios.get(URL).catch(()=>{});}, 9*60*1000);
-app.listen(process.env.PORT||10000, ()=>console.log('V26 LIVE'));
+app.listen(process.env.PORT||10000, ()=>console.log('V27 LIVE'));
