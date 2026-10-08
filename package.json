@@ -1,7 +1,7 @@
 {
   "name": "pesacheck-bot",
   "version": "1.0.0",
-  "description": "PesaCheck - East Africa fact-checking bot for M-Pesa scams",
+  "description": "PesaCheck - checks 5 M-Pesa scams",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
