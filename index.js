@@ -1,32 +1,31 @@
-const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
-const token = process.env.BOT_TOKEN;
-const bot = new TelegramBot(token, { polling: true });
-const app = express();
-
 function checkScams(text) {
-  let t = text.toUpperCase();
+  let t = text.toUpperCase().trim();
   let scams = [];
 
-  // 1. Fake M-Pesa - lazima ianze na code na "Confirmed"
-  if (!t.includes("CONFIRMED") || !t.includes("M-PESA") && !t.includes("MPESA")) {
+  // Kama ni Transaction ID peke yake (kama QRTUYF5) - usimwite scam
+  if (/^[A-Z0-9]{10}$/.test(t)) {
+    return []; // Ni code tu, si SMS
+  }
+
+  // 1. Fake M-Pesa - check tu kama ujumbe ni mrefu
+  if (t.length > 20 && !t.includes("CONFIRMED")) {
     scams.push("1. Fake SMS: Hii si SMS ya M-Pesa original (hakuna 'Confirmed')");
   }
-  // 2. Wrong number reverse scam
-  if (t.includes("REVERSE") || t.includes("RUDISHIA") || t.includes("WRONG NUMBER")) {
-    scams.push("2. Reverse Scam: Anataka urudishe pesa - usitume bila ku-check balance *334#");
+  // 2. Reverse scam
+  if (t.includes("REVERSE") || t.includes("RUDISHIA") || t.includes("WRONG NUMBER") || t.includes("NIMETUMIA VIBAYA")) {
+    scams.push("2. Reverse Scam: Anataka urudishe - check balance *334# kwanza");
   }
-  // 3. Paybill/Till fake
-  if (t.includes("PAYBILL") || t.includes("TILL") || t.includes("BUY GOODS")) {
-    if (!/^\w{10}\s+Confirmed/.test(text)) scams.push("3. Paybill Check: Hakikisha Till/Paybill number ni ya kampuni legit - call Safaricom");
+  // 3. Fake Paybill/Till
+  if (t.includes("PAYBILL") && t.includes("ACCOUNT") && t.length < 30) {
+    scams.push("3. Paybill Check: Thibitisha number kwa Safaricom 100");
   }
-  // 4. Fuliza / Loan link
-  if (t.includes("FULIZA") && (t.includes("HTTP") || t.includes("WWW") || t.includes("CLICK"))) {
-    scams.push("4. Fuliza Scam: Safaricom HAI-tumi link - ni SCAM!");
+  // 4. Fuliza with link
+  if (t.includes("FULIZA") && (t.includes("HTTP") || t.includes("CLICK") || t.includes("BONUS"))) {
+    scams.push("4. Fuliza Scam: Safaricom haitumi link!");
   }
   // 5. Wash wash / Prize
-  if (t.includes("WIN") || t.includes("USHINDI") || t.includes("LOTTERY") || t.includes("CLAIM") && t.includes("SEND")) {
-    scams.push("5. Wash Wash: Hakuna kushinda bila kushiriki - usitume pesa!");
+  if ((t.includes("WIN") || t.includes("USHINDI")) && (t.includes("SEND") || t.includes("TUMA"))) {
+    scams.push("5. Wash Wash: Hakuna ushindi bila bahati nasibu!");
   }
   return scams;
 }
@@ -34,16 +33,19 @@ function checkScams(text) {
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || "";
-  if (text.toLowerCase() === "mambo") {
-    return bot.sendMessage(chatId, "Poa! Tuma SMS ya M-Pesa hapa nichambue. Usitume PIN yako.");
+  
+  if (/^[A-Z0-9]{10}$/.test(text.trim().toUpperCase())) {
+    return bot.sendMessage(chatId, `✅ Code ${text.toUpperCase()} inaonekana kama M-Pesa Transaction ID halisi.\n\nFormat iko sawa (herufi 10). Kama unataka ni-check SMS mzima, tuma SMS yote.`);
   }
+
+  if (text.toLowerCase() === "mambo") {
+    return bot.sendMessage(chatId, "Poa! Tuma code kama QRTUYF5 ama SMS yote nichambue.");
+  }
+
   const found = checkScams(text);
   if (found.length === 0) {
-    bot.sendMessage(chatId, `✅ Inaonekana LEGIT:\n"${text}"\n\nLakini bado check balance yako *334# usiamini SMS peke yake.`);
+    bot.sendMessage(chatId, `✅ LEGIT:\n"${text}"\n\nHakuna scam kati ya hizo 5.`);
   } else {
-    bot.sendMessage(chatId, `🚨 SCAM DETECTED (${found.length}):\n\n${found.join("\n\n")}\n\nUsitume pesa! Piga 100 au 234.`);
+    bot.sendMessage(chatId, `🚨 SCAM DETECTED (${found.length}):\n\n${found.join("\n\n")}\n\nUsitume pesa! Piga 100`);
   }
 });
-
-app.get("/", (req,res)=> res.send("Bot Live"));
-app.listen(process.env.PORT || 10000, () => console.log("PesaCheck Legit Bot Started"));
