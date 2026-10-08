@@ -1,12 +1,16 @@
 {
   "name": "pesacheck-bot",
   "version": "1.0.0",
+  "description": "PesaCheck - M-Pesa Fake SMS Detector Bot Kenya - Legit Educational Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "node-telegram-bot-api": "^0.61.0"
+    "node-telegram-bot-api": "^0.66.0",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
