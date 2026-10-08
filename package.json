@@ -1,11 +1,8 @@
 {
-  "name": "pesacheck-bot",
-  "version": "23.0.0",
-  "main": "index.js",
-  "scripts": { "start": "node index.js" },
+  "name": "pesacheck",
+  "version": "1.0.0",
   "dependencies": {
     "express": "^4.18.2",
-    "node-telegram-bot-api": "^0.61.0",
-    "axios": "^1.6.0"
+    "node-telegram-bot-api": "^0.64.0"
   }
 }
