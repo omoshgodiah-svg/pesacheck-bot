@@ -1,56 +1,72 @@
-const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
+require('dotenv').config();
+const { Telegraf } = require('telegraf');
 
-const token = process.env.BOT_TOKEN;
-if (!token) {
-  console.log("BOT_TOKEN missing!");
-  process.exit(1);
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+const INTRO_MESSAGE = `Hi am PesaCheck, verify mpesa transactions if real or fake
+Send me the transaction to confirm if real or fake`;
+
+// Greetings in Swahili/English -> still show what bot does
+const GREETINGS = ['hi', 'hello', 'habari', 'mambo', 'niaje', 'sasa', 'hujambo', 'hey'];
+
+function isGreeting(text) {
+  const lower = text.toLowerCase().trim();
+  return GREETINGS.some(g => lower === g || lower.startsWith(g + ' '));
 }
 
-const bot = new TelegramBot(token, { polling: true });
-const app = express();
+function checkMpesa(text) {
+  const hasConfirmed = /confirmed/i.test(text);
+  const hasMpesa = /M-PESA|M-Pesa|MPESA/i.test(text);
+  const hasKsh = /Ksh|KSh|KSH/i.test(text);
+  const hasTransID = /\b[A-Z0-9]{10}\b/.test(text); // The 10 combinations
+  const hasCost = /transaction cost/i.test(text);
+  const hasDatePattern = /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}:\d{2}\s*(AM|PM)/i.test(text);
 
-function checkScams(text) {
-  let t = text.toUpperCase().trim();
-  let scams = [];
-  if (/^[A-Z0-9]{10}$/.test(t)) return [];
-  if (t.length > 20 && !t.includes("CONFIRMED")) {
-    scams.push("1. Fake SMS: Hii si SMS ya M-Pesa original (hakuna 'Confirmed')");
-  }
-  if (t.includes("REVERSE") || t.includes("RUDISHIA") || t.includes("WRONG NUMBER") || t.includes("NIMETUMIA VIBAYA")) {
-    scams.push("2. Reverse Scam: Anataka urudishe - check *334#");
-  }
-  if (t.includes("PAYBILL") && t.length < 100 && !t.includes("CONFIRMED")) {
-    scams.push("3. Paybill Check: Thibitisha number 100");
-  }
-  if (t.includes("FULIZA") && (t.includes("HTTP") || t.includes("CLICK") || t.includes("BONUS"))) {
-    scams.push("4. Fuliza Scam: Safaricom haitumi link!");
-  }
-  if ((t.includes("WIN") || t.includes("USHINDI") || t.includes("LOTTERY")) && (t.includes("SEND") || t.includes("TUMA"))) {
-    scams.push("5. Wash Wash: Hakuna ushindi bila kushiriki!");
-  }
-  return scams;
-}
+  // FAKE indicators
+  const isFuliza = /fuliza/i.test(text);
+  const hasLink = /http|www\.|\.com|click here/i.test(text);
+  const hasPersonalNumber = /\+2547\d{8}/.test(text) && !hasMpesa; // anonymous number
 
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text || "";
-  
-  if (/^[A-Z0-9]{10}$/.test(text.trim().toUpperCase())) {
-    return bot.sendMessage(chatId, `✅ Code ${text.toUpperCase()} inaonekana kama M-Pesa Transaction ID halisi.\n\nFormat iko sawa. Tuma SMS mzima kama unataka check zaidi.`);
+  if (isFuliza) {
+    return { status: 'FAKE', reason: 'Hii ni message ya FULIZA, sio ya M-PESA ya kutumiwa pesa. Scammers hutumia hii kudanganya.' };
+  }
+  if (hasLink) {
+    return { status: 'FAKE', reason: 'Fake - Ina link / website. Safaricom haitumi link kwa M-PESA SMS.' };
   }
 
-  if (text.toLowerCase() === "mambo") {
-    return bot.sendMessage(chatId, "Poa! Tuma code kama QRTUYF5 ama SMS yote nichambue hizo 5 scams.");
-  }
-
-  const found = checkScams(text);
-  if (found.length === 0) {
-    bot.sendMessage(chatId, `✅ LEGIT:\n"${text}"\n\nHakuna scam kati ya hizo 5.`);
+  // Real M-PESA must have these 4 main things
+  if (hasConfirmed && hasMpesa && hasKsh && hasTransID) {
+    return { status: 'REAL', reason: 'Message iko na Confirmed, M-PESA, Ksh na Transaction ID ya herufi 10. Inaonekana ni ya kweli.' };
   } else {
-    bot.sendMessage(chatId, `🚨 SCAM DETECTED (${found.length}):\n\n${found.join("\n\n")}\n\nUsitume pesa! Piga 100`);
+    let missing = [];
+    if (!hasConfirmed) missing.push('Confirmed');
+    if (!hasMpesa) missing.push('M-PESA');
+    if (!hasKsh) missing.push('Ksh');
+    if (!hasTransID) missing.push('Transaction Code (herufi 10)');
+    
+    return { status: 'FAKE', reason: `Fake - Message haina vitu muhimu: ${missing.join(', ')}. Scammer ame-copy message bandia.` };
+  }
+}
+
+bot.start((ctx) => {
+  ctx.reply(INTRO_MESSAGE);
+});
+
+bot.on('text', (ctx) => {
+  const text = ctx.message.text;
+
+  if (isGreeting(text)) {
+    return ctx.reply(INTRO_MESSAGE);
+  }
+
+  const result = checkMpesa(text);
+
+  if (result.status === 'REAL') {
+    ctx.reply(`✅ REAL\n\n${result.reason}`);
+  } else {
+    ctx.reply(`❌ FAKE\n\n${result.reason}`);
   }
 });
 
-app.get("/", (req,res)=> res.send("PesaCheck Live - 5 scams check active"));
-app.listen(process.env.PORT || 10000, () => console.log("PesaCheck Legit Bot Started"));
+bot.launch();
+console.log('PesaCheck is running...');
