@@ -1,16 +1,12 @@
 {
-  "name": "pesacheck-bot",
+  "name": "pesacheck",
   "version": "1.0.0",
-  "description": "PesaCheck - checks 5 M-Pesa scams",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.61.0",
-    "express": "^4.18.2"
-  },
-  "engines": {
-    "node": "18.x"
+    "telegraf": "^4.15.0",
+    "dotenv": "^16.4.5"
   }
 }
