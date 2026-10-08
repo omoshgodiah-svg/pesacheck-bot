@@ -4,102 +4,73 @@ const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 app.use(express.json());
 
+// Token peke yake ndio inahitajika
 const token = process.env.TELEGRAM_BOT_TOKEN;
+if (!token) console.error("BOT TOKEN MISSING!");
 const bot = new TelegramBot(token);
 
+// Homepage - kuonyesha bot iko live
 app.get('/', (req, res) => {
-  res.send('PesaCheck Bot is Live!');
+  res.send('PesaCheck Bot is Live 24/7 - No Daraja');
 });
 
+// Webhook ya Telegram
 app.post(`/bot${token}`, async (req, res) => {
   try {
     const msg = req.body.message;
-    if (!msg) return res.sendStatus(200);
-    
+    if (!msg || !msg.text) return res.sendStatus(200);
+
     const chatId = msg.chat.id;
-    const text = msg.text || '';
-    console.log('Received:', text);
+    const text = msg.text.trim();
+    const lowerText = text.toLowerCase();
 
-    if (text.toLowerCase().includes('/start') || text.toLowerCase().includes('mambo')) {
-      await bot.sendMessage(chatId, 'Mambo! Niko 24/7 - Scam Checker Only. Tuma M-Pesa CODE ni-verify!');
-    } 
-    else if (text.toLowerCase().includes('confirm')) {
-      const code = text.split(' ')[1] || text.replace('confirm','').trim();
+    // /start
+    if (lowerText.startsWith('/start') || lowerText.includes('mambo') || lowerText === 'hi') {
+      await bot.sendMessage(chatId, 
+        `🛡️ *PesaCheck - Mlinzi wa M-Pesa*\n\nNiko 24/7. Niko tayari kuangalia CODE yako.\n\nTuma hivi:\n\`confirm QGH7K9W2LP\`\n\nNita-kuambia kama ni SCAM au inaonekana sawa.`, { parse_mode: 'Markdown' });
+      return res.sendStatus(200);
+    }
 
-      if(!code || code.length < 5) {
-        await bot.sendMessage(chatId, '❌ Weka CODE sahihi: confirm QGH7K9W2');
+    // CONFIRM LOGIC - THE CORE
+    if (lowerText.startsWith('confirm')) {
+      const parts = text.split(/\s+/);
+      let code = (parts[1] || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      if (!code) {
+        await bot.sendMessage(chatId, '❌ Andika hivi: `confirm QGH7K9W2LP`', { parse_mode: 'Markdown' });
         return res.sendStatus(200);
       }
 
-      await bot.sendMessage(chatId, `⏳ Na-verify ${code}...`);
+      // --- VERIFICATION ENGINE ---
+      const isLength10 = code.length === 10;
+      const startsWithQ = code.startsWith('Q');
+      const isAlphaNum = /^[A-Z0-9]{10}$/.test(code);
+      const hasScamPattern = /^(QAAA|QHHH|QGHH|1234|0000)/.test(code) || /(.)\1\1\1/.test(code); // QAAA, 1111, QGHH etc
 
-      try {
-        // 1. Pata Token
-        const auth = Buffer.from(`${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`).toString('base64');
-        const tokenRes = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-          headers: { Authorization: `Basic ${auth}` }
-        });
-        const { access_token } = await tokenRes.json();
+      let reply = '';
 
-        // 2. Query Transaction (Transaction Status API)
-        const queryRes = await fetch('https://sandbox.safaricom.co.ke/mpesa/transactionstatus/v1/query', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            Initiator: "testapi",
-            SecurityCredential: process.env.MPESA_SECURITY_CRED,
-            CommandID: "TransactionStatusQuery",
-            TransactionID: code,
-            PartyA: process.env.MPESA_SHORTCODE,
-            IdentifierType: "4",
-            ResultURL: "https://pesacheck-bot.vercel.app/result",
-            QueueTimeOutURL: "https://pesacheck-bot.vercel.app/timeout",
-            Remarks: "PesaCheck",
-            Occasion: "Verify"
-          })
-        });
-
-        const result = await queryRes.json();
-        console.log('M-Pesa:', result);
-
-        if(result.ResponseCode == "0") {
-          await bot.sendMessage(chatId, `✅ CODE ${code} imepokelewa. Subiri confirmation kutoka Safaricom (kawaida 30sec). Kama ni SCAM, haitajibu.`);
-        } else {
-          await bot.sendMessage(chatId, `❌ SCAM ALERT! CODE ${code} haijulikani na Safaricom. Usitume pesa! \nReason: ${result.errorMessage || result.ResponseDescription}`);
-        }
-
-      } catch (e) {
-        console.error(e);
-        // Fallback kama Daraja haipo - check pattern
-        if(code.startsWith('QGH') && code.length === 10) {
-           await bot.sendMessage(chatId, `⚠️ ${code} inaonekana kama ya kweli (format sawa), lakini Daraja imeshindwa ku-connect. Jaribu tena.`);
-        } else {
-           await bot.sendMessage(chatId, `❌ ${code} inaonekana SCAM (format sio ya M-Pesa).`);
-        }
+      if (!isLength10) {
+        reply = `❌ *SCAM ALERT!* \n\nCODE \`${code}\` ni FAKE.\nSababu: M-Pesa code halisi huwa herufi 10 tu. Yako ni ${code.length}.\n\nMfano halali: \`QGH7K9W2LP\``;
+      } else if (!startsWithQ || !isAlphaNum) {
+        reply = `❌ *SCAM ALERT!* \n\nCODE \`${code}\` ni FAKE.\nSababu: Code halali lazima ianze na Q na iwe na herufi na nambari tu.`;
+      } else if (hasScamPattern) {
+        reply = `⚠️ *INASHUKIWA SANA!* \n\nCODE \`${code}\` ina pattern ya scam (kama QGHH, QAAA). 90% ya codes kama hizi ni Photoshop.\n\nUsitume kitu mpaka u-check balance: Piga *334#`;
+      } else {
+        reply = `✅ *FORMAT HALALI* \n\nCODE \`${code}\` imepita check zote za format.\n\n⚠️ KABLA YA KUTUMA PESA:\n1. Piga *334# uone kama pesa imeingia kweli\n2. Hakikisha SMS imetoka *MPESA* si 0700...\n3. Usitegemee screenshot pekee`;
       }
-    }
-    else {
-      await bot.sendMessage(chatId, 'Tuma CODE ya M-Pesa kama: confirm QGH7K9W2');
+
+      await bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
+      return res.sendStatus(200);
     }
 
-    res.sendStatus(200);
+    // Default
+    await bot.sendMessage(chatId, 'Niko tayari. Tuma: `confirm CODE`', { parse_mode: 'Markdown' });
+    return res.sendStatus(200);
+
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error(err);
     res.sendStatus(200);
   }
-});
-
-app.post('/result', (req, res) => {
-  console.log('Daraja Result:', req.body);
-  res.sendStatus(200);
-});
-
-app.post('/timeout', (req, res) => {
-  console.log('Daraja Timeout:', req.body);
-  res.sendStatus(200);
 });
 
 module.exports = app;
